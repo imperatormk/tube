@@ -15,6 +15,7 @@ import (
 
 	rice "github.com/GeertJohan/go.rice"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/renstrom/shortuuid"
 	log "github.com/sirupsen/logrus"
@@ -75,8 +76,8 @@ func NewApp(cfg *Config) (*App, error) {
 
 	// Setup Router
 	r := mux.NewRouter().StrictSlash(true)
-	r.HandleFunc("/", a.indexHandler).Methods("GET")
-	r.HandleFunc("/upload", a.uploadHandler).Methods("GET", "POST")
+	r.HandleFunc("/", a.indexHandler).Methods("GET", "OPTIONS")
+	r.HandleFunc("/upload", a.uploadHandler).Methods("GET", "OPTIONS", "POST")
 	r.HandleFunc("/v/{id}.mp4", a.videoHandler).Methods("GET")
 	r.HandleFunc("/v/{prefix}/{id}.mp4", a.videoHandler).Methods("GET")
 	r.HandleFunc("/t/{id}", a.thumbHandler).Methods("GET")
@@ -90,6 +91,26 @@ func NewApp(cfg *Config) (*App, error) {
 		http.FileServer(rice.MustFindBox("../static").HTTPBox()),
 	)
 	r.PathPrefix("/static/").Handler(fsHandler).Methods("GET")
+
+	cors := handlers.CORS(
+		handlers.AllowedHeaders([]string{
+			"X-Requested-With",
+			"Content-Type",
+			"Authorization",
+		}),
+		handlers.AllowedMethods([]string{
+			"GET",
+			"POST",
+			"PUT",
+			"HEAD",
+			"OPTIONS",
+		}),
+		handlers.AllowedOrigins([]string{"*"}),
+		handlers.AllowCredentials(),
+	)
+
+	r.Use(cors)
+
 	a.Router = r
 	return a, nil
 }
